@@ -1,0 +1,95 @@
+version: "3.8"
+#x-def-logging: &default-logging
+#  logging:
+#    driver: "loki"
+#    options:
+#      loki-url: "http://localhost:3100/loki/api/v1/push"
+#      loki-batch-size: "100"
+#      loki-retries: 2
+#      loki-max-backoff: 1000ms
+#      loki-timeout: 1s
+
+services:
+  note_backend:
+    container_name: note_backend
+    hostname: note_backend
+    image: martyrminds/note_back
+    command: uvicorn app.main:app --reload --workers 1 --host 0.0.0.0 --port 8000
+    volumes:
+      - ./src/:/usr/src/app/
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://note_app:admin@db/notes
+    depends_on:
+      - db
+  note_frontend:
+    container_name: note_frontend
+    hostname: note_frontend
+    image: martyrminds/note_front
+    ports:
+      - "3001:3001"
+    depends_on:
+      - note_backend
+    environment:
+      - REACT_APP_EXTERNAL_IP=${DOCKER_GATEWAY_HOST:-host.docker.internal}
+  db:
+    container_name: note_db
+    image: postgres:13.1-alpine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_USER=note_app
+      - POSTGRES_PASSWORD=admin
+      - POSTGRES_DB=notes
+    ports:
+      - "5432:5432"
+
+#  prometheus:
+#    image: prom/prometheus
+#    container_name: prometheus
+#    ports:
+#      - "9090:9090"
+#    volumes:
+#      - ./prometheus_data/prometheus.yml:/etc/prometheus/prometheus.yml
+#    command:
+#      - '--config.file=/etc/prometheus/prometheus.yml'
+#
+#
+#  grafana:
+#    image: grafana/grafana
+#    container_name: grafana
+#    ports:
+#      - "3002:3000"
+#    volumes:
+#      - grafana_data:/var/lib/grafana
+#
+#  loki:
+#    hostname: loki
+#    container_name: loki
+#    image: grafana/loki:latest
+#    environment:
+#      TZ: ${SYSTEM_TIMEZONE:-Europe/Moscow}
+#    ports:
+#      - "3100:3100"
+#    command: -config.file=/etc/loki/local-config.yaml
+
+
+volumes:
+  postgres_data:
+  #  prometheus_data:
+  #    driver: local
+  #    driver_opts:
+  #      o: bind
+  #      type: none
+  #      device: ./prometheus_data
+  #  grafana_data:
+  #    driver: local
+  #    driver_opts:
+  #      o: bind
+  #      type: none
+  #      device: ./grafana_data
+
+networks:
+  default:
+    name: note_app
